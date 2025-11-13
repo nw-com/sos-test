@@ -196,6 +196,7 @@
         async function signInUser() {
             try {
                 // 修正：當使用自訂的 firebaseConfig 時，強制使用匿名登入
+                // (因為 __initial_auth_token 是針對不同專案簽發的)
                 await signInAnonymously(auth);
 
             } catch (error) {
@@ -341,6 +342,7 @@
                 utterance.lang = 'zh-TW'; // 指定語言
                 utterance.rate = 1.1; // 稍快語速
                 utterance.pitch = 1.2; // 稍高音調
+                utterance.volume = 1; // 修正：將音量設為最大 (1)
                 speechSynthesis.speak(utterance);
             } catch (error) {
                 console.error("播放提示音失敗:", error);
@@ -410,7 +412,7 @@
                 console.error("監聽警報失敗:", error);
                 
                 // 修正：在管理員介面顯示 Firestore 權限錯誤
-                if (error.code === 'permission-denied' || error.message.includes('permission')) {
+                if (error.code === 'permission-denied' || (error.message && error.message.includes('permission'))) {
                     firestoreErrorContent.innerHTML = '<b>(Error: Missing or insufficient permissions.)</b><br>這表示您的 Firebase 安全性規則阻止了程式讀取資料。<br><br><b>解決方案：</b><br>1. 前往您的 Firebase 專案 (`nw-sos`)。<br>2. 選擇 "Firestore Database"。<br>3. 點選 "規則 (Rules)" 頁籤。<br>4. 將規則修改為允許讀取（例如 `allow read: if true;`）並發布。';
                     firestoreErrorBox.classList.remove('hidden');
                 } else {
