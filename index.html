@@ -29,6 +29,26 @@
         .sos-button-animation {
             animation: pulse-red 2s infinite;
         }
+        
+        /* 自訂錯誤訊息框樣式 */
+        .error-box {
+            padding: 1rem;
+            border-width: 4px;
+            border-color: #ef4444; /* red-500 */
+            border-radius: 0.5rem; /* rounded-lg */
+            background-color: #fee2e2; /* red-100 */
+            text-align: left;
+        }
+        .error-box-title {
+            font-size: 1.125rem; /* text-xl */
+            font-weight: 700; /* font-bold */
+            color: #b91c1c; /* red-700 */
+            margin-bottom: 0.5rem; /* mb-2 */
+        }
+        .error-box-content {
+            color: #dc2626; /* red-600 */
+            font-size: 0.875rem; /* text-sm */
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
@@ -78,6 +98,12 @@
             <button id="manager-back-btn" class="text-sm text-blue-500 hover:text-blue-700 mb-4">&larr; 返回</button>
             <h1 class="text-2xl font-bold text-center text-red-600 mb-6">管理中心 - 緊急通報</h1>
             
+            <!-- 修正：Firestore 權限錯誤的提示框 -->
+            <div id="firestore-error-box" class="hidden error-box mb-4">
+                <h3 class="error-box-title">資料庫讀取失敗</h3>
+                <p id="firestore-error-content" class="error-box-content"></p>
+            </div>
+
             <div id="alert-list" class="space-y-3 max-h-96 overflow-y-auto">
                 <!-- SOS 警報會動態插入到這裡 -->
                 <p id="no-alerts" class="text-gray-500 text-center py-4">目前沒有新的警報。</p>
@@ -90,9 +116,7 @@
     <script type="module">
         // 匯入 Firebase 模組
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        // 修正：從 'firebase-auth.js' 移除 setLogLevel
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        // 修正：將 setLogLevel 加入 'firebase-firestore.js' 的匯入
         import { getFirestore, doc, addDoc, setDoc, updateDoc, collection, query, where, onSnapshot, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- 全域變數 ---
@@ -100,10 +124,6 @@
         let unsubscribeAlerts = null; // 用於儲存 onSnapshot 的取消訂閱函數
         let knownAlertIds = new Set(); // 儲存已知的 'new' 警報ID，用於播放聲音
 
-        // 獲取 Firebase 設定
-        // const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        // appId = typeof __app_id !== 'undefined' ? __app_id : 'default-sos-app';
-        
         // 修正：直接使用用戶提供的 Firebase 金鑰
         const firebaseConfig = {
           apiKey: "AIzaSyCslxeIkL0-4FSlQtsnGBRjKEGnIW2NVw8",
@@ -112,7 +132,6 @@
           storageBucket: "nw-sos.firebasestorage.app",
           messagingSenderId: "998718068324",
           appId: "1:998718068324:web:cd8b8b69bf043fe64bb171",
-          // 修正：移除多餘的 "G-E3"
           measurementId: "G-E31DVPW0LE"
         };
         
@@ -126,6 +145,8 @@
         const residentView = document.getElementById('resident-view');
         const managerView = document.getElementById('manager-view');
         const portalUserId = document.getElementById('portal-user-id');
+        const firestoreErrorBox = document.getElementById('firestore-error-box');
+        const firestoreErrorContent = document.getElementById('firestore-error-content');
         
         const showResidentBtn = document.getElementById('show-resident-btn');
         const showManagerBtn = document.getElementById('show-manager-btn');
@@ -174,36 +195,28 @@
 
         async function signInUser() {
             try {
-                // 修正：當使用自訂的 firebaseConfig 時 (像這個情況)，
-                // __initial_auth_token 會不匹配 (mismatch)，因為該 token 是為環境的預設專案所簽發的。
-                // 因此，我們應強制使用匿名登入。
-                // if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                //     await signInWithCustomToken(auth, __initial_auth_token);
-                // } else {
-                //     await signInAnonymously(auth);
-                // }
+                // 修正：當使用自訂的 firebaseConfig 時，強制使用匿名登入
                 await signInAnonymously(auth);
 
             } catch (error) {
                 console.error("Firebase 登入失敗:", error);
                 
-                // 修正：提供更具體的錯誤訊息給使用者
+                // 提供更具體的錯誤訊息給使用者
                 let userErrorMessage = `Firebase 登入失敗: ${error.message}`;
                 if (error.code === 'auth/configuration-not-found') {
                     userErrorMessage = '<b>Firebase 登入失敗 (auth/configuration-not-found):</b> <br>請檢查您的 Firebase 專案設定。<br>1. 確認 `firebaseConfig` 拼寫正確。<br>2. <b>重要：</b>請前往 Firebase Console &gt; Authentication &gt; Sign-in method (登入方式)，並<b>啟用「匿名 (Anonymous)」</b>登入。';
                 } else if (error.code === 'auth/custom-token-mismatch') {
                      userErrorMessage = '<b>Firebase 登入失敗 (auth/custom-token-mismatch):</b> <br>偵測到自訂金鑰，但環境 token 不符。已嘗試切換至匿名登入，但可能失敗。';
                 
-                // 修正：捕獲新的 auth/admin-restricted-operation 錯誤
                 } else if (error.code === 'auth/admin-restricted-operation') {
                     userErrorMessage = '<b>Firebase 登入失敗 (auth/admin-restricted-operation):</b> <br>此操作已被管理員限制。請檢查：<br>1. <b>(最可能)</b> 請再次確認您已在 Firebase Console &gt; Authentication &gt; Sign-in method 中<b>啟用「匿名 (Anonymous)」</b>登入。<br>2. <b>(其次可能)</b> 您可能設定了 API 金鑰限制。請前往 Google Cloud Console &gt; APIs & 服務 &gt; 憑證，找到您的 API 金鑰。如果您設定了 "HTTP 參照網址" (HTTP referrers)，請確保已將 `*.scf.usercontent.goog` 加入允許清單，或暫時移除所有限制。';
                 
                 }
                 
                 // 修正：讓錯誤訊息更明顯
-                loadingView.innerHTML = `<div class="p-4 border-4 border-red-500 rounded-lg bg-red-100">
-                    <h3 class="text-xl font-bold text-red-700 mb-2">發生錯誤</h3>
-                    <p class="text-red-600 text-left text-sm">${userErrorMessage}</p>
+                loadingView.innerHTML = `<div class="error-box">
+                    <h3 class="error-box-title">發生錯誤</h3>
+                    <p class="error-box-content">${userErrorMessage}</p>
                 </div>`;
             }
         }
@@ -216,13 +229,16 @@
             portalView.classList.add('hidden');
             residentView.classList.add('hidden');
             managerView.classList.add('hidden');
+            
+            // 修正：隱藏 Firestore 錯誤框
+            firestoreErrorBox.classList.add('hidden');
 
             // 取消訂閱舊的監聽器
             if (viewName !== 'manager' && unsubscribeAlerts) {
                 console.log("離開管理頁面，取消監聽。");
                 unsubscribeAlerts();
                 unsubscribeAlerts = null;
-                knownAlertIds.clear(); // 修正：重置已知的警報
+                knownAlertIds.clear(); // 重置已知的警報
             }
 
             // 顯示指定的視圖
@@ -248,7 +264,6 @@
         showResidentBtn.addEventListener('click', () => showView('resident'));
         showManagerBtn.addEventListener('click', () => {
             // S首次進入管理頁面時，主動觸發一次空的語音，以獲取瀏覽器音訊權限
-            // 這是為了繞過某些瀏覽器不允許網頁自動播放音訊的限制
             try {
                 const primer = new SpeechSynthesisUtterance(' ');
                 primer.volume = 0; // 靜音播放
@@ -336,7 +351,7 @@
         function listenForAlerts() {
             if (!db) return;
             
-            // 修正：監聽整個集合，繞過 'where' 查詢可能需要的索引
+            // 監聽整個集合，繞過 'where' 查詢可能需要的索引
             const collectionRef = collection(db, `artifacts/${appId}/public/data/sos_alerts`);
 
             unsubscribeAlerts = onSnapshot(collectionRef, (snapshot) => {
@@ -393,7 +408,18 @@
 
             }, (error) => {
                 console.error("監聽警報失敗:", error);
-                alertList.innerHTML = `<p class="text-red-500">無法載入警報: ${error.message}</p>`;
+                
+                // 修正：在管理員介面顯示 Firestore 權限錯誤
+                if (error.code === 'permission-denied' || error.message.includes('permission')) {
+                    firestoreErrorContent.innerHTML = '<b>(Error: Missing or insufficient permissions.)</b><br>這表示您的 Firebase 安全性規則阻止了程式讀取資料。<br><br><b>解決方案：</b><br>1. 前往您的 Firebase 專案 (`nw-sos`)。<br>2. 選擇 "Firestore Database"。<br>3. 點選 "規則 (Rules)" 頁籤。<br>4. 將規則修改為允許讀取（例如 `allow read: if true;`）並發布。';
+                    firestoreErrorBox.classList.remove('hidden');
+                } else {
+                    firestoreErrorContent.textContent = `無法載入警報: ${error.message}`;
+                    firestoreErrorBox.classList.remove('hidden');
+                }
+                
+                alertList.innerHTML = ''; // 清空列表
+                noAlertsMsg.classList.remove('hidden'); // 顯示 "無警報"
             });
         }
 
@@ -446,8 +472,7 @@
                 await updateDoc(docRef, {
                     status: 'resolved' // 狀態改為已處理
                 });
-                // onSnapshot 會自動偵測到這個變更 (因為它不再符合 where("status", "==", "new") 查詢)
-                // 並觸發 "removed" 事件，自動從UI移除
+                // onSnapshot 會自動偵測到這個變更並從UI移除
                 console.log(`警報 ${docId} 已處理`);
             } catch (error) {
                 console.error("處理警報失敗:", error);
