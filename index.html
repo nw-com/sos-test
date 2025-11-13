@@ -354,42 +354,77 @@
         // --- 4. 管理員邏輯 ---
 
         /**
-         * 新增：播放指定時長的鈴聲 (返回 Promise)
+         * 新增：播放單個音符 (playRingTone 的輔助函數)
+         * @param {number} frequency - 頻率 (Hz)
+         * @param {number} startTime - 相對 audioCtx.currentTime 的開始時間 (秒)
+         * @param {number} duration - 持續時間 (秒)
+         * @param {number} volume - 音量 (0.0 to 1.0)
+         */
+        function playNote(frequency, startTime, duration, volume) {
+            if (!audioCtx) return;
+            
+            try {
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                // 修正：使用 'sine' (正弦波) 產生更柔和的音調
+                oscillator.type = 'sine'; 
+                oscillator.frequency.value = frequency;
+                
+                const now = audioCtx.currentTime;
+                // 設定音量，並避免過於刺耳
+                gainNode.gain.setValueAtTime(volume * 0.5, now + startTime);
+                
+                oscillator.start(now + startTime);
+                
+                // 在結束時快速淡出以避免爆音
+                gainNode.gain.exponentialRampToValueAtTime(0.0001, now + startTime + duration - 0.05);
+                oscillator.stop(now + startTime + duration);
+            } catch (error) {
+                console.error("playNote 失敗:", error);
+            }
+        }
+
+
+        /**
+         * 修正：播放指定時長的 "優美旋律" (返回 Promise)
+         * (原為 playRingTone)
          * @param {number} durationInSeconds - 播放時長（秒）
          * @param {number} volume - 音量 (0.0 to 1.0)
          */
         function playRingTone(durationInSeconds, volume) {
-            return new Promise((resolve, reject) => {
+            return new Promise((resolve) => {
                 if (!audioCtx) {
                     console.warn("AudioContext 尚未初始化");
-                    // 即使 audioCtx 未初始化，也立即 resolve，以免卡住流程
                     resolve(); 
                     return;
                 }
-
-                try {
-                    const oscillator = audioCtx.createOscillator(); // 震盪器 (產生聲音)
-                    const gainNode = audioCtx.createGain(); // 音量控制器
-
-                    oscillator.connect(gainNode);
-                    gainNode.connect(audioCtx.destination); // 連接到喇叭
-
-                    gainNode.gain.value = volume * 0.5; // 避免鈴聲過於刺耳
-                    oscillator.frequency.value = 1000; // 1000 Hz
-                    oscillator.type = 'square'; // 方波 (像嗶嗶聲)
-
-                    oscillator.start(); // 開始播放
-
-                    // 設定指定時長後停止
-                    setTimeout(() => {
-                        oscillator.stop();
-                        resolve(); // 播放完畢，resolve Promise
-                    }, durationInSeconds * 1000);
-
-                } catch (error) {
-                    console.error("播放鈴聲失敗:", error);
-                    reject(error);
+                
+                const noteDuration = 0.25; // 每個音符 0.25 秒
+                const pause = 0.05; // 間隔 0.05 秒
+                
+                let currentTime = 0;
+                
+                // 迴圈播放，直到達到總時長
+                while (currentTime < durationInSeconds) {
+                    // 播放一組旋律 (A5)
+                    playNote(880, currentTime, noteDuration, volume); 
+                    currentTime += noteDuration + pause;
+                    
+                    if (currentTime >= durationInSeconds) break; // 如果已達時長則停止
+                    
+                    // 播放第二組旋律 (E5)
+                    playNote(659, currentTime, noteDuration, volume); 
+                    currentTime += noteDuration + pause;
                 }
+
+                // 在總時長結束後 resolve
+                setTimeout(() => {
+                    resolve();
+                }, durationInSeconds * 1000);
             });
         }
 
@@ -441,9 +476,9 @@
                 const volume = volumeSlider ? parseFloat(volumeSlider.value) : 1; 
 
                 // 依序播放
-                await playRingTone(5, volume);   // 播放5秒鈴聲
+                await playRingTone(3, volume);   // 修正：播放3秒鈴聲
                 await speakAlertText(volume);  // 播放「請支援住戶」
-                await playRingTone(5, volume);   // 再播放5秒鈴聲
+                await playRingTone(3, volume);   // 修正：再播放3秒鈴聲
 
             } catch (error) {
                 console.error("播放完整警報音序時發生錯誤:", error);
