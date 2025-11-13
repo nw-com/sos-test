@@ -98,6 +98,12 @@
             <button id="manager-back-btn" class="text-sm text-blue-500 hover:text-blue-700 mb-4">&larr; 返回</button>
             <h1 class="text-2xl font-bold text-center text-red-600 mb-6">管理中心 - 緊急通報</h1>
             
+            <!-- 新增：音量控制 -->
+            <div class="mb-4">
+                <label for="volume-slider" class="block text-sm font-medium text-gray-700">提示音音量</label>
+                <input type="range" id="volume-slider" min="0" max="1" step="0.1" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+            </div>
+
             <!-- 修正：Firestore 權限錯誤的提示框 -->
             <div id="firestore-error-box" class="hidden error-box mb-4">
                 <h3 class="error-box-title">資料庫讀取失敗</h3>
@@ -338,11 +344,16 @@
         // 播放提示音
         function playAlertSound() {
             try {
+                // 修正：讀取音量滑桿的值
+                const volumeSlider = document.getElementById('volume-slider');
+                // 如果找不到滑桿，預設音量為 1
+                const volume = volumeSlider ? parseFloat(volumeSlider.value) : 1; 
+
                 const utterance = new SpeechSynthesisUtterance("請支援住戶");
                 utterance.lang = 'zh-TW'; // 指定語言
                 utterance.rate = 1.1; // 稍快語速
                 utterance.pitch = 1.2; // 稍高音調
-                utterance.volume = 1; // 修正：將音量設為最大 (1)
+                utterance.volume = volume; // 使用滑桿的音量
                 speechSynthesis.speak(utterance);
             } catch (error) {
                 console.error("播放提示音失敗:", error);
