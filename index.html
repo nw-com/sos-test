@@ -1,49 +1,43 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>社區SOS緊急系統</title>
-    <!-- 引入Tailwind CSS -->
+    <!-- 載入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 基本字型和樣式 */
+        /* 自訂樣式 */
         body {
-            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
         }
-        /* 隱藏/顯示視圖的 class */
-        .hidden {
-            display: none;
+        /* 載入中... 的動畫 */
+        .spinner {
+            border-top-color: #3498db;
+            animation: spin 1s linear infinite;
         }
-        /* SOS 按鈕的動畫 */
-        @keyframes pulse-red {
-            0%, 100% {
-                opacity: 1;
-                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
-            }
-            70% {
-                opacity: 0.8;
-                box-shadow: 0 0 0 20px rgba(239, 68, 68, 0);
-            }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
-        .sos-button-animation {
+        /* SOS 按鈕的呼吸效果 */
+        #sos-button:not(:disabled) {
             animation: pulse-red 2s infinite;
         }
-        
-        /* 自訂錯誤訊息框樣式 */
+        @keyframes pulse-red {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(220, 38, 38, 0); }
+        }
+        /* 錯誤提示框 */
         .error-box {
-            padding: 1rem;
-            border-width: 4px;
-            border-color: #ef4444; /* red-500 */
+            background-color: #fef2f2; /* red-50 */
+            border: 1px solid #fecaca; /* red-200 */
             border-radius: 0.5rem; /* rounded-lg */
-            background-color: #fee2e2; /* red-100 */
-            text-align: left;
+            padding: 1rem; /* p-4 */
+            margin-top: 1rem; /* mt-4 */
         }
         .error-box-title {
-            font-size: 1.125rem; /* text-xl */
-            font-weight: 700; /* font-bold */
-            color: #b91c1c; /* red-700 */
-            margin-bottom: 0.5rem; /* mb-2 */
+            color: #991b1b; /* red-800 */
+            font-weight: 600; /* font-semibold */
         }
         .error-box-content {
             color: #dc2626; /* red-600 */
@@ -53,42 +47,49 @@
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
 
-    <!-- 主容器 -->
-    <div class="w-full max-w-md bg-white rounded-lg shadow-xl p-8">
+    <!-- 容器 -->
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 md:p-8">
 
-        <!-- 0. 載入中畫面 (Firebase 登入時) -->
-        <div id="loading-view" class="text-center">
-            <h2 class="text-xl font-bold text-gray-800">系統載入中...</h2>
-            <p class="text-gray-500 mt-2">正在連線至伺服器，請稍候。</p>
+        <!-- 0. 載入中畫面 -->
+        <div id="loading-view">
+            <div class="flex flex-col items-center justify-center min-h-[200px]">
+                <div class="spinner w-12 h-12 border-4 border-gray-200 rounded-full"></div>
+                <p id="loading-text" class="text-gray-500 mt-4">系統載入中...</p>
+                <!-- Firebase 錯誤提示區 -->
+                <div id="firebase-error-box" class="error-box hidden w-full">
+                    <p class="error-box-title">Firebase 連線失敗</p>
+                    <p id="firebase-error-message" class="error-box-content mt-2"></p>
+                    <p id="firebase-error-solution" class="error-box-content mt-1"></p>
+                </div>
+            </div>
         </div>
 
         <!-- 1. 入口選擇畫面 -->
         <div id="portal-view" class="hidden">
-            <h1 class="text-3xl font-bold text-center text-blue-600 mb-6">社區SOS緊急系統</h1>
-            <p class="text-center text-gray-600 mb-8">請選擇您的身份：</p>
+            <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">社區SOS系統</h1>
             <div class="space-y-4">
-                <button id="show-resident-btn" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-6 rounded-lg text-lg transition duration-300 shadow-md">
+                <button id="goto-resident" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg text-lg transition duration-300">
                     我是住戶
                 </button>
-                <button id="show-manager-btn" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-4 px-6 rounded-lg text-lg transition duration-300 shadow-md">
+                <button id="goto-manager" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg text-lg transition duration-300">
                     我是管理員
                 </button>
             </div>
-            <p class="text-xs text-gray-400 mt-6 text-center">您的用戶ID: <span id="portal-user-id" class="font-mono"></span></p>
+            <p class="text-xs text-gray-400 text-center mt-6">User ID: <span id="portal-user-id">...</span></p>
         </div>
 
         <!-- 2. 住戶畫面 -->
         <div id="resident-view" class="hidden">
             <button id="resident-back-btn" class="text-sm text-blue-500 hover:text-blue-700 mb-4">&larr; 返回</button>
-            <h1 class="text-2xl font-bold text-center text-green-600 mb-6">住戶SOS呼叫</h1>
+            <h1 class="text-2xl font-bold text-center text-green-600 mb-6">住戶服務</h1>
             
             <div class="mb-6">
                 <label for="resident-info" class="block text-sm font-medium text-gray-700 mb-2">您的房號或姓名：</label>
                 <input type="text" id="resident-info" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="例如：A棟101房 陳先生">
             </div>
 
-            <button id="sos-button" class="w-full h-48 bg-red-600 text-white font-bold text-4xl rounded-full shadow-2xl flex items-center justify-center transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:animate-none" disabled>
-                SOS
+            <button id="sos-button" class="w-full h-36 bg-red-600 text-white font-bold text-4xl rounded-2xl shadow-2xl flex items-center justify-center transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:animate-none" disabled>
+                SOS<br>緊急呼叫
             </button>
             <p id="resident-status" class="text-center text-gray-500 mt-4 h-6"></p>
         </div>
@@ -96,20 +97,26 @@
         <!-- 3. 管理員畫面 -->
         <div id="manager-view" class="hidden">
             <button id="manager-back-btn" class="text-sm text-blue-500 hover:text-blue-700 mb-4">&larr; 返回</button>
-            <h1 class="text-2xl font-bold text-center text-red-600 mb-6">管理中心 - 緊急通報</h1>
-            
+            <h1 class="text-2xl font-bold text-center text-blue-600 mb-6">管理中心 - 緊急通報</h1>
+
             <!-- 音量控制 -->
             <div class="mb-4">
                 <label for="volume-slider" class="block text-sm font-medium text-gray-700">提示音音量</label>
                 <input type="range" id="volume-slider" min="0" max="1" step="0.1" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
             </div>
 
-            <!-- Firestore 權限錯誤的提示框 -->
-            <div id="firestore-error-box" class="hidden error-box mb-4">
-                <h3 class="error-box-title">資料庫讀取失敗</h3>
-                <p id="firestore-error-content" class="error-box-content"></p>
+            <!-- Firestore 權限錯誤提示 -->
+            <div id="firestore-permission-error" class="error-box hidden w-full">
+                <p class="error-box-title">Firestore 權限不足</p>
+                <p class="error-box-content mt-2">
+                    無法監聽警報。這通常是因為您的 Firebase 安全規則 (Rules) 不允許讀取。
+                </p>
+                <p class="error-box-content mt-1">
+                    <b>解決方案：</b>請登入您的 Firebase 專案 (`nw-sos`)，前往 <b>Firestore Database -> 規則 (Rules)</b> 頁籤，並貼上推薦的安全規則。
+                </p>
             </div>
 
+            <!-- 警報列表 -->
             <div id="alert-list" class="space-y-3 max-h-96 overflow-y-auto">
                 <!-- SOS 警報會動態插入到這裡 -->
                 <p id="no-alerts" class="text-gray-500 text-center py-4">目前沒有新的警報。</p>
@@ -123,17 +130,18 @@
         // 匯入 Firebase 模組
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, addDoc, setDoc, updateDoc, collection, query, where, onSnapshot, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, addDoc, setDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot, serverTimestamp, setLogLevel, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- 全域變數 ---
         let db, auth, userId, appId;
         let unsubscribeAlerts = null; // 用於儲存 onSnapshot 的取消訂閱函數
         let knownAlertIds = new Set(); // 儲存已知的 'new' 警報ID，用於播放聲音
         
-        // 新增：AudioContext 用於產生鈴聲
-        let audioCtx;
-        // 新增：用於防止聲音重疊
-        let isSoundPlaying = false; 
+        // --- 聲音相關全域變數 ---
+        let audioCtx; // AudioContext
+        let currentOscillators = new Set(); // 儲存目前播放的音符
+        let activeMelodyTimeout = null; // 追蹤遞迴的 Timeout
+        let isSoundPlaying = false; // 用於防止聲音重疊
 
         // 修正：直接使用用戶提供的 Firebase 金鑰
         const firebaseConfig = {
@@ -146,29 +154,34 @@
           measurementId: "G-E31DVPW0LE"
         };
         
-        // 修正：使用 projectId 作為資料庫路徑的 appId，以確保一致性
-        appId = firebaseConfig.projectId;
+        // 修正：使用 projectId 作為 appId
+        appId = firebaseConfig.projectId || 'default-app-id';
 
-
-        // 取得所有視圖和按鈕的 DOM 節點
+        // --- DOM 節點 ---
         const loadingView = document.getElementById('loading-view');
+        const loadingText = document.getElementById('loading-text');
+        const errorBox = document.getElementById('firebase-error-box');
+        const errorMessage = document.getElementById('firebase-error-message');
+        const errorSolution = document.getElementById('firebase-error-solution');
+
         const portalView = document.getElementById('portal-view');
+        const portalUserId = document.getElementById('portal-user-id');
         const residentView = document.getElementById('resident-view');
         const managerView = document.getElementById('manager-view');
-        const portalUserId = document.getElementById('portal-user-id');
-        const firestoreErrorBox = document.getElementById('firestore-error-box');
-        const firestoreErrorContent = document.getElementById('firestore-error-content');
         
-        const showResidentBtn = document.getElementById('show-resident-btn');
-        const showManagerBtn = document.getElementById('show-manager-btn');
+        const gotoResidentBtn = document.getElementById('goto-resident');
+        const gotoManagerBtn = document.getElementById('goto-manager');
         const residentBackBtn = document.getElementById('resident-back-btn');
         const managerBackBtn = document.getElementById('manager-back-btn');
-        
+
         const sosButton = document.getElementById('sos-button');
         const residentInfoInput = document.getElementById('resident-info');
         const residentStatus = document.getElementById('resident-status');
         const alertList = document.getElementById('alert-list');
         const noAlertsMsg = document.getElementById('no-alerts');
+        const volumeSlider = document.getElementById('volume-slider');
+        const firestoreError = document.getElementById('firestore-permission-error');
+
 
         // --- 1. 初始化與 Firebase 認證 ---
 
@@ -182,54 +195,58 @@
                 // 設定日誌級別以便調試
                 setLogLevel('Debug');
 
-                // 2. 監聽認證狀態
-                onAuthStateChanged(auth, async (user) => {
+                // 2. 登入用戶
+                await signInUser();
+
+                // 3. 監聽認證狀態
+                onAuthStateChanged(auth, (user) => {
                     if (user) {
-                        // 使用者已登入
+                        console.log("Firebase 認證成功, User ID:", user.uid);
                         userId = user.uid;
-                        portalUserId.textContent = userId.substring(0, 8) + '...';
-                        console.log("Firebase 認證成功, User ID:", userId);
-                        
-                        // 顯示入口畫面
+                        portalUserId.textContent = userId;
+                        // 啟用住戶頁面的按鈕
+                        sosButton.disabled = false;
+                        residentInfoInput.disabled = false;
+                        // 顯示入口
                         showView('portal');
                     } else {
-                        // 使用者未登入，執行登入
-                        console.log("使用者未登入，嘗試使用 token 或匿名登入...");
-                        await signInUser();
+                        console.log("用戶未登入。");
+                        userId = null;
+                        sosButton.disabled = true;
+                        residentInfoInput.disabled = true;
                     }
                 });
+
             } catch (error) {
                 console.error("Firebase 初始化失敗:", error);
-                loadingView.innerHTML = `<p class="text-red-500">Firebase 初始化失敗: ${error.message}</p>`;
+                showFirebaseError("Firebase 初始化失敗", error);
             }
         }
 
         async function signInUser() {
             try {
-                // 修正：當使用自訂的 firebaseConfig 時，強制使用匿名登入
+                // 強制使用匿名登入
+                console.log("嘗試匿名登入...");
                 await signInAnonymously(auth);
 
             } catch (error) {
                 console.error("Firebase 登入失敗:", error);
-                
-                // 提供更具體的錯誤訊息給使用者
-                let userErrorMessage = `Firebase 登入失敗: ${error.message}`;
-                if (error.code === 'auth/configuration-not-found') {
-                    userErrorMessage = '<b>Firebase 登入失敗 (auth/configuration-not-found):</b> <br>請檢查您的 Firebase 專案設定。<br>1. 確認 `firebaseConfig` 拼寫正確。<br>2. <b>重要：</b>請前往 Firebase Console &gt; Authentication &gt; Sign-in method (登入方式)，並<b>啟用「匿名 (Anonymous)」</b>登入。';
-                } else if (error.code === 'auth/custom-token-mismatch') {
-                     userErrorMessage = '<b>Firebase 登入失敗 (auth/custom-token-mismatch):</b> <br>偵測到自訂金鑰，但環境 token 不符。已嘗試切換至匿名登入，但可能失敗。';
-                
-                } else if (error.code === 'auth/admin-restricted-operation') {
-                    userErrorMessage = '<b>Firebase 登入失敗 (auth/admin-restricted-operation):</b> <br>此操作已被管理員限制。請檢查：<br>1. <b>(最可能)</b> 請再次確認您已在 Firebase Console &gt; Authentication &gt; Sign-in method 中<b>啟用「匿名 (Anonymous)」</b>登入。<br>2. <b>(其次可能)</b> 您可能設定了 API 金鑰限制。請前往 Google Cloud Console &gt; APIs & 服務 &gt; 憑證，找到您的 API 金鑰。如果您設定了 "HTTP 參照網址" (HTTP referrers)，請確保已將 `*.scf.usercontent.goog` 加入允許清單，或暫時移除所有限制。';
-                
-                }
-                
-                // 修正：讓錯誤訊息更明顯
-                loadingView.innerHTML = `<div class="error-box">
-                    <h3 class="error-box-title">發生錯誤</h3>
-                    <p class="error-box-content">${userErrorMessage}</p>
-                </div>`;
+                showFirebaseError("Firebase 登入失敗", error);
             }
+        }
+        
+        // 顯示更詳細的 Firebase 錯誤
+        function showFirebaseError(title, error) {
+            loadingText.textContent = title;
+            errorMessage.textContent = `錯誤: ${error.message} (代碼: ${error.code})`;
+
+            // 針對特定錯誤提供解決方案
+            if (error.code === 'auth/configuration-not-found' || error.code === 'auth/admin-restricted-operation') {
+                errorSolution.innerHTML = `<b>解決方案：</b>請登入您的 Firebase 專案，前往 <b>Authentication -> Sign-in method</b>，並**啟用「匿名 (Anonymous)」**登入。`;
+            } else {
+                errorSolution.textContent = "請檢查您的網路連線或 Firebase 金鑰設定。";
+            }
+            errorBox.classList.remove('hidden');
         }
 
         // --- 2. 視圖管理 ---
@@ -242,14 +259,15 @@
             managerView.classList.add('hidden');
             
             // 修正：隱藏 Firestore 錯誤框
-            firestoreErrorBox.classList.add('hidden');
+            firestoreError.classList.add('hidden');
 
-            // 取消訂閱舊的監聽器
+            // 如果離開管理頁面，停止監聽
             if (viewName !== 'manager' && unsubscribeAlerts) {
                 console.log("離開管理頁面，取消監聽。");
                 unsubscribeAlerts();
                 unsubscribeAlerts = null;
-                knownAlertIds.clear(); // 重置已知的警報
+                knownAlertIds.clear(); 
+                stopAlarm(); // 離開頁面時停止聲音
             }
 
             // 顯示指定的視圖
@@ -265,363 +283,415 @@
                     // 進入管理頁面時，開始監聽
                     listenForAlerts();
                     break;
-                case 'loading':
-                    loadingView.classList.remove('hidden');
-                    break;
             }
         }
 
-        // 綁定入口按鈕事件
-        showResidentBtn.addEventListener('click', () => showView('resident'));
-        
-        showManagerBtn.addEventListener('click', () => {
-            // 修正：初始化 AudioContext 並預熱語音引擎
-            try {
-                if (!audioCtx) {
-                    // 瀏覽器要求 AudioContext 必須由使用者操作 (如點擊) 觸發
-                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    console.log("AudioContext 已初始化");
-                }
-                // 預熱語音
-                const primer = new SpeechSynthesisUtterance(' ');
-                primer.volume = 0; // 靜音播放
-                speechSynthesis.speak(primer);
-            } catch (e) {
-                console.warn("無法初始化 AudioContext 或預熱語音引擎:", e.message);
-            }
-            showView('manager');
-        });
-
+        // 綁定視圖切換按鈕
+        gotoResidentBtn.addEventListener('click', () => showView('resident'));
+        gotoManagerBtn.addEventListener('click', () => showView('manager'));
         residentBackBtn.addEventListener('click', () => showView('portal'));
         managerBackBtn.addEventListener('click', () => showView('portal'));
 
-        // --- 3. 住戶邏輯 ---
+        // --- 3. 住戶功能 (發送SOS) ---
 
-        // 根據輸入框內容啟用/禁用SOS按鈕
         residentInfoInput.addEventListener('input', () => {
-            if (residentInfoInput.value.trim() !== '') {
-                sosButton.disabled = false;
-                if (!sosButton.classList.contains('sos-button-animation')) {
-                     sosButton.classList.add('sos-button-animation');
-                }
-            } else {
-                sosButton.disabled = true;
-                sosButton.classList.remove('sos-button-animation');
-            }
+            residentStatus.textContent = ''; // 清除狀態
         });
 
-        // 發送SOS
         sosButton.addEventListener('click', async () => {
             const info = residentInfoInput.value.trim();
-            if (!info || !userId) return;
+            if (!info) {
+                residentStatus.textContent = '請先輸入您的房號或姓名！';
+                residentStatus.classList.add('text-red-500');
+                return;
+            }
 
-            // 暫時禁用按鈕
+            // 禁用按鈕
             sosButton.disabled = true;
-            sosButton.classList.remove('sos-button-animation');
-            residentStatus.textContent = '正在發送訊號...';
+            residentStatus.textContent = '正在發送緊急呼叫...';
+            residentStatus.classList.remove('text-red-500');
+            residentStatus.classList.add('text-gray-500');
 
             try {
-                // 儲存到 public 集合中，讓管理員能看到
-                const collectionRef = collection(db, `artifacts/${appId}/public/data/sos_alerts`);
-                await addDoc(collectionRef, {
-                    residentId: userId,
+                // 資料庫路徑
+                const collectionPath = `artifacts/${appId}/public/data/sos_alerts`;
+                
+                // 新增文件
+                const docRef = await addDoc(collection(db, collectionPath), {
                     residentInfo: info,
-                    status: 'new', // 狀態：new, acknowledged, resolved
-                    timestamp: serverTimestamp()
+                    status: 'new', // new, resolved
+                    createdAt: serverTimestamp(),
+                    senderId: userId
                 });
 
-                residentStatus.textContent = '訊號已發送！管理中心將盡速處理。';
-                residentInfoInput.value = ''; // 清空輸入框
-                
-                // 5秒後重新啟用按鈕
-                setTimeout(() => {
-                    residentStatus.textContent = '';
-                    // 重新檢查輸入框
-                    if (residentInfoInput.value.trim() !== '') {
-                        sosButton.disabled = false;
-                        sosButton.classList.add('sos-button-animation');
-                    }
-                }, 5000);
+                console.log("SOS 發送成功, Doc ID:", docRef.id);
+                residentStatus.textContent = '緊急呼叫已發送！';
+                residentStatus.classList.add('text-green-500');
 
             } catch (error) {
-                console.error("發送 SOS 失敗:", error);
-                residentStatus.textContent = `發送失敗: ${error.message}`;
-                sosButton.disabled = false; // 失敗了，允許重試
-                sosButton.classList.add('sos-button-animation');
+                console.error("SOS 發送失敗:", error);
+                residentStatus.textContent = '發送失敗，請稍後再試。';
+                residentStatus.classList.add('text-red-500');
+            } finally {
+                // 3秒後重新啟用按鈕
+                setTimeout(() => {
+                    sosButton.disabled = false;
+                    residentStatus.textContent = '';
+                    residentStatus.classList.remove('text-green-500', 'text-red-500');
+                }, 3000);
             }
         });
 
-        // --- 4. 管理員邏輯 ---
+        // --- 4. 管理員功能 (接收SOS) ---
 
-        /**
-         * 新增：播放單個音符 (playRingTone 的輔助函數)
-         * @param {number} frequency - 頻率 (Hz)
-         * @param {number} startTime - 相對 audioCtx.currentTime 的開始時間 (秒)
-         * @param {number} duration - 持續時間 (秒)
-         * @param {number} volume - 音量 (0.0 to 1.0)
-         */
-        function playNote(frequency, startTime, duration, volume) {
-            if (!audioCtx) return;
+        function listenForAlerts() {
+            if (unsubscribeAlerts) {
+                console.log("監聽器已在執行中。");
+                return;
+            }
+
+            console.log("開始監聽警報...");
+            firestoreError.classList.add('hidden'); // 重置錯誤提示
             
+            const collectionPath = `artifacts/${appId}/public/data/sos_alerts`;
+
+            const q = query(collection(db, collectionPath));
+
+            unsubscribeAlerts = onSnapshot(q, (querySnapshot) => {
+                console.log("收到資料更新");
+                const alerts = [];
+                querySnapshot.forEach((doc) => {
+                    alerts.push({ id: doc.id, ...doc.data() });
+                });
+
+                // 在客戶端手動過濾和排序
+                const newAlerts = alerts
+                    .filter(a => a.status === 'new')
+                    .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)); // 最新的在前面
+
+                updateAlertList(newAlerts);
+
+            }, (error) => {
+                console.error("監聽警報失敗:", error);
+                // 檢查是否為權限錯誤
+                if (error.code === 'permission-denied' || error.code === 'unauthenticated') {
+                    firestoreError.classList.remove('hidden');
+                }
+            });
+        }
+
+        function updateAlertList(newAlerts) {
+            alertList.innerHTML = ''; // 清空列表
+
+            if (newAlerts.length === 0) {
+                alertList.appendChild(noAlertsMsg);
+                noAlertsMsg.classList.remove('hidden');
+                // 如果沒有警報了，確保停止聲音
+                stopAlarm(); 
+            } else {
+                noAlertsMsg.classList.add('hidden');
+                let newAlertFound = false;
+
+                newAlerts.forEach(alert => {
+                    addAlertToUI(alert);
+                    
+                    // 檢查這是否是一個新的、之前未知的警報
+                    if (!knownAlertIds.has(alert.id)) {
+                        console.log("偵測到新警報:", alert.id);
+                        knownAlertIds.add(alert.id);
+                        newAlertFound = true;
+                    }
+                });
+
+                // 如果有新警報，且目前沒有聲音在播放
+                if (newAlertFound && !isSoundPlaying) {
+                    playAlertSound();
+                }
+            }
+        }
+
+        function addAlertToUI(alert) {
+            const alertEl = document.createElement('div');
+            alertEl.id = `alert-${alert.id}`;
+            alertEl.className = 'bg-red-100 border border-red-300 rounded-lg p-4 shadow-md';
+
+            const info = document.createElement('p');
+            info.className = 'text-lg font-bold text-red-800';
+            info.textContent = alert.residentInfo;
+
+            const time = document.createElement('p');
+            time.className = 'text-sm text-red-600';
+            time.textContent = `時間: ${alert.createdAt ? new Date(alert.createdAt.seconds * 1000).toLocaleString() : '...'}`;
+            
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'flex flex-wrap gap-2 mt-4'; // 使用 flex-wrap 和 gap
+
+            // --- 「已收到 (靜音)」按鈕 ---
+            const silenceBtn = document.createElement('button');
+            silenceBtn.className = 'flex-auto bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200';
+            silenceBtn.textContent = '已收到 (靜音)';
+            silenceBtn.onclick = () => {
+                console.log("按下靜音");
+                stopAlarm(); // 呼叫停止警報
+            };
+
+            const resolveBtn = document.createElement('button');
+            resolveBtn.className = 'flex-auto bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200';
+            resolveBtn.textContent = '處理完畢';
+            
+            resolveBtn.addEventListener('click', async () => {
+                try {
+                    resolveBtn.disabled = true;
+                    resolveBtn.textContent = '處理中...';
+                    
+                    // 將此警報 ID 從 knownAlertIds 移除，以便下次能再次觸發
+                    knownAlertIds.delete(alert.id);
+                    
+                    const docPath = `artifacts/${appId}/public/data/sos_alerts/${alert.id}`;
+                    await updateDoc(doc(db, docPath), {
+                        status: 'resolved'
+                    });
+
+                    // onSnapshot 會自動處理 UI 更新
+                    
+                } catch (error) {
+                    console.error("更新狀態失敗:", error);
+                    resolveBtn.disabled = false;
+                    resolveBtn.textContent = '處理完畢';
+                    // 顯示錯誤
+                }
+            });
+
+            buttonContainer.appendChild(silenceBtn);
+            buttonContainer.appendChild(resolveBtn);
+            alertEl.appendChild(info);
+            alertEl.appendChild(time);
+            alertEl.appendChild(buttonContainer);
+
+            alertList.appendChild(alertEl);
+        }
+
+        // --- 5. 聲音播放功能 ---
+
+        // 初始化 AudioContext
+        function initAudioContext() {
+            if (!audioCtx) {
+                try {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    console.log("AudioContext 已初始化");
+                } catch (e) {
+                    console.error("Web Audio API 不支援。", e);
+                }
+            }
+        }
+        // 在管理員按鈕點擊時初始化
+        gotoManagerBtn.addEventListener('click', initAudioContext);
+
+        // --- 強制停止所有警報 ---
+        function stopAlarm() {
+            console.log("停止所有警報聲音...");
+            isSoundPlaying = false; // 重設標記
+
+            // 停止遞迴的 Timeout
+            if (activeMelodyTimeout) {
+                clearTimeout(activeMelodyTimeout);
+                activeMelodyTimeout = null;
+            }
+
+            // 停止所有正在播放的音符
+            currentOscillators.forEach(osc => {
+                try { osc.stop(); } catch(e) {}
+            });
+            currentOscillators.clear();
+
+            // 停止語音
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+        }
+
+        // *** 修改：播放《快樂頌》，單次超過1分鐘 ***
+        function playRingTone(volume) {
+            if (!audioCtx) {
+                console.warn("AudioContext 未初始化，無法播放鈴聲。");
+                return;
+            }
+            if (!isSoundPlaying) return; // 如果在呼叫時已經被停止
+            
+            // 音符頻率 (Hz)
+            const C4 = 261.63, D4 = 293.66, E4 = 329.63, F4 = 349.23, G4 = 392.00, A4 = 440.00, B4 = 493.88;
+            const R = 0; // 休止符
+            
+            // 拍子長度 (秒)，設定 60 BPM (每拍 1 秒)
+            const quarter = 1.0; // 四分音符
+            const half = 2.0;    // 二分音符
+            const dotted_quarter = 1.5; // 附點四分音符
+            const eighth = 0.5;  // 八分音符
+
+            // 貝多芬《快樂頌》 (Ode to Joy) - 主旋律 (AABA)
+            // 總共 16 小節 * 4 拍/小節 = 64 拍
+            // @ 60 BPM = 64 秒
+            const melody = [
+                // A 部 (小節 1-4)
+                { freq: E4, duration: quarter }, { freq: E4, duration: quarter }, { freq: F4, duration: quarter }, { freq: G4, duration: quarter },
+                { freq: G4, duration: quarter }, { freq: F4, duration: quarter }, { freq: E4, duration: quarter }, { freq: D4, duration: quarter },
+                { freq: C4, duration: quarter }, { freq: C4, duration: quarter }, { freq: D4, duration: quarter }, { freq: E4, duration: quarter },
+                { freq: E4, duration: dotted_quarter }, { freq: D4, duration: eighth }, { freq: D4, duration: half }, // 第4小節
+                
+                // A 部 (小節 5-8)
+                { freq: E4, duration: quarter }, { freq: E4, duration: quarter }, { freq: F4, duration: quarter }, { freq: G4, duration: quarter },
+                { freq: G4, duration: quarter }, { freq: F4, duration: quarter }, { freq: E4, duration: quarter }, { freq: D4, duration: quarter },
+                { freq: C4, duration: quarter }, { freq: C4, duration: quarter }, { freq: D4, duration: quarter }, { freq: E4, duration: quarter },
+                { freq: D4, duration: dotted_quarter }, { freq: C4, duration: eighth }, { freq: C4, duration: half }, // 第8小節
+
+                // B 部 (小節 9-12)
+                { freq: D4, duration: quarter }, { freq: D4, duration: quarter }, { freq: E4, duration: quarter }, { freq: C4, duration: quarter },
+                { freq: D4, duration: quarter }, { freq: E4, duration: eighth }, { freq: F4, duration: eighth }, { freq: E4, duration: quarter }, { freq: C4, duration: quarter },
+                { freq: D4, duration: quarter }, { freq: E4, duration: eighth }, { freq: F4, duration: eighth }, { freq: E4, duration: quarter }, { freq: D4, duration: quarter },
+                { freq: C4, duration: quarter }, { freq: D4, duration: quarter }, { freq: G4, duration: half }, // 第12小節
+
+                // A 部 (小節 13-16)
+                { freq: E4, duration: quarter }, { freq: E4, duration: quarter }, { freq: F4, duration: quarter }, { freq: G4, duration: quarter },
+                { freq: G4, duration: quarter }, { freq: F4, duration: quarter }, { freq: E4, duration: quarter }, { freq: D4, duration: quarter },
+                { freq: C4, duration: quarter }, { freq: C4, duration: quarter }, { freq: D4, duration: quarter }, { freq: E4, duration: quarter },
+                { freq: D4, duration: dotted_quarter }, { freq: C4, duration: eighth }, { freq: C4, duration: half } // 第16小節
+            ];
+            
+            let noteIndex = 0;
+            let startTime = audioCtx.currentTime;
+
+            function playNextNote() {
+                // 如果中途被 stopAlarm() 停止，則中斷循環
+                if (!isSoundPlaying) return; 
+
+                //  modulo 實現無限循環
+                const note = melody[noteIndex % melody.length];
+                const noteStartTime = startTime;
+                
+                // 播放音符
+                playNote(note.freq, noteStartTime, note.duration, volume);
+                
+                // 準備下一個音符的時間
+                startTime += note.duration;
+                noteIndex++;
+
+                // 設置遞迴
+                if (audioCtx.currentTime > startTime) {
+                    startTime = audioCtx.currentTime;
+                }
+                
+                activeMelodyTimeout = setTimeout(playNextNote, (note.duration * 1000) - 50); // 稍微提早，保持節奏
+            }
+
+            playNextNote(); // 啟動無限循環
+        }
+
+        // 輔助函數：播放單個音符
+        function playNote(frequency, startTime, duration, volume) {
+            if (frequency === 0) return; // 處理休止符
+            if (!audioCtx || audioCtx.state === 'closed') {
+                if (audioCtx) console.warn("AudioContext is closed, re-initializing.");
+                initAudioContext(); // 嘗試重新初始化
+                if (!audioCtx) return;
+            }
             try {
-                const oscillator = audioCtx.createOscillator();
                 const gainNode = audioCtx.createGain();
-                
-                oscillator.connect(gainNode);
+                gainNode.gain.setValueAtTime(volume * 0.5, startTime); 
+                gainNode.gain.linearRampToValueAtTime(0.001, startTime + duration * 0.9); // 避免 0
                 gainNode.connect(audioCtx.destination);
+
+                const oscillator = audioCtx.createOscillator();
+                oscillator.type = 'sine'; // 優美的正弦波
+                oscillator.frequency.setValueAtTime(frequency, startTime);
+                oscillator.connect(gainNode);
                 
-                // 修正：使用 'sine' (正弦波) 產生更柔和的音調
-                oscillator.type = 'sine'; 
-                oscillator.frequency.value = frequency;
+                oscillator.start(startTime);
+                oscillator.stop(startTime + duration);
                 
-                const now = audioCtx.currentTime;
-                // 設定音量，並避免過於刺耳
-                gainNode.gain.setValueAtTime(volume * 0.5, now + startTime);
-                
-                oscillator.start(now + startTime);
-                
-                // 在結束時快速淡出以避免爆音
-                gainNode.gain.exponentialRampToValueAtTime(0.0001, now + startTime + duration - 0.05);
-                oscillator.stop(now + startTime + duration);
-            } catch (error) {
-                console.error("playNote 失敗:", error);
+                currentOscillators.add(oscillator);
+                oscillator.onended = () => {
+                    currentOscillators.delete(oscillator);
+                    gainNode.disconnect();
+                };
+            } catch (e) {
+                console.error("PlayNote error:", e);
             }
         }
 
 
-        /**
-         * 修正：播放指定時長的 "優美旋律" (返回 Promise)
-         * (原為 playRingTone)
-         * @param {number} durationInSeconds - 播放時長（秒）
-         * @param {number} volume - 音量 (0.0 to 1.0)
-         */
-        function playRingTone(durationInSeconds, volume) {
-            return new Promise((resolve) => {
-                if (!audioCtx) {
-                    console.warn("AudioContext 尚未初始化");
-                    resolve(); 
-                    return;
-                }
-                
-                const noteDuration = 0.25; // 每個音符 0.25 秒
-                const pause = 0.05; // 間隔 0.05 秒
-                
-                let currentTime = 0;
-                
-                // 迴圈播放，直到達到總時長
-                while (currentTime < durationInSeconds) {
-                    // 播放一組旋律 (A5)
-                    playNote(880, currentTime, noteDuration, volume); 
-                    currentTime += noteDuration + pause;
-                    
-                    if (currentTime >= durationInSeconds) break; // 如果已達時長則停止
-                    
-                    // 播放第二組旋律 (E5)
-                    playNote(659, currentTime, noteDuration, volume); 
-                    currentTime += noteDuration + pause;
-                }
-
-                // 在總時長結束後 resolve
-                setTimeout(() => {
-                    resolve();
-                }, durationInSeconds * 1000);
-            });
-        }
-
-        /**
-         * 新增：播放語音提示 (返回 Promise)
-         * @param {number} volume - 音量 (0.0 to 1.0)
-         */
+        // 播放語音提示
         function speakAlertText(volume) {
             return new Promise((resolve, reject) => {
-                try {
-                    const utterance = new SpeechSynthesisUtterance("請支援住戶");
-                    utterance.lang = 'zh-TW';
-                    utterance.rate = 1.1;
-                    utterance.pitch = 1.2;
-                    utterance.volume = volume;
-
-                    // 語音播放結束時，resolve Promise
-                    utterance.onend = () => {
-                        resolve();
-                    };
-                    
-                    // 播放失敗時
-                    utterance.onerror = (event) => {
-                        console.error("語音播放失敗:", event.error);
-                        reject(event.error);
-                    };
-
-                    speechSynthesis.speak(utterance);
-                } catch (error) {
-                    console.error("播放提示音失敗:", error);
-                    reject(error);
+                if (!('speechSynthesis' in window)) {
+                    console.warn("瀏覽器不支援語音合成。");
+                    return resolve(); // 靜默失敗
                 }
+                
+                // 檢查是否被 stopAlarm() 停止了
+                if (!isSoundPlaying) {
+                    console.log("語音被取消 (isSoundPlaying=false)");
+                    return resolve();
+                }
+
+                const utterance = new SpeechSynthesisUtterance("請支援住戶");
+                utterance.lang = 'zh-TW';
+                utterance.volume = parseFloat(volume); // 從滑桿讀取音量
+                utterance.rate = 1.0;
+                
+                utterance.onend = () => {
+                    console.log("語音播放完畢。");
+                    resolve();
+                };
+                utterance.onerror = (e) => {
+                    console.error("語音播放錯誤:", e);
+                    resolve(); // 即使錯誤也 resolve，避免流程卡住
+                };
+                
+                // 確保之前的語音已清除
+                window.speechSynthesis.cancel();
+                window.speechSynthesis.speak(utterance);
             });
         }
 
-        // 修改：播放完整的警報音序 (鈴聲 -> 語音 -> 鈴聲)
+        // 組合播放（先語音，再無限鈴聲）
         async function playAlertSound() {
-            // 防止聲音重疊
             if (isSoundPlaying) {
-                console.log("聲音播放中，忽略新的觸發");
+                console.log("聲音已在播放，跳過。");
                 return;
             }
             
             isSoundPlaying = true;
+            console.log("--- 開始播放警報音 (語音優先) ---");
             
             try {
-                // 讀取音量滑桿的值
-                const volumeSlider = document.getElementById('volume-slider');
-                const volume = volumeSlider ? parseFloat(volumeSlider.value) : 1; 
-
-                // 依序播放
-                await playRingTone(3, volume);   // 修正：播放3秒鈴聲
-                await speakAlertText(volume);  // 播放「請支援住戶」
-                await playRingTone(3, volume);   // 修正：再播放3秒鈴聲
-
-            } catch (error) {
-                console.error("播放完整警報音序時發生錯誤:", error);
-            } finally {
-                isSoundPlaying = false; // 播放完畢，解除鎖定
-            }
-        }
-
-
-        // 監聽新的警報
-        function listenForAlerts() {
-            if (!db) return;
-            
-            const collectionRef = collection(db, `artifacts/${appId}/public/data/sos_alerts`);
-
-            unsubscribeAlerts = onSnapshot(collectionRef, (snapshot) => {
-                
-                let currentNewAlerts = new Map(); // 當前所有 'new' 警報
-                snapshot.docs.forEach(doc => {
-                    if (doc.data().status === 'new') {
-                        currentNewAlerts.set(doc.id, { ...doc.data(), id: doc.id });
-                    }
-                });
-
-                // 檢查是否有 *新* 加入的 'new' 警報 (用於播放聲音)
-                snapshot.docChanges().forEach((change) => {
-                    const docId = change.doc.id;
-                    const docData = change.doc.data();
-                    
-                    if (docData.status === 'new') {
-                        // 如果這個警報是 'new' 且我們 *之前不知道* 它是 'new'
-                        if (!knownAlertIds.has(docId)) {
-                            if (change.type === 'added' || (change.type === 'modified')) {
-                                console.log("新警報或狀態變為 new:", docId);
-                                if (!isSoundPlaying) { // 檢查是否正在播放
-                                    playAlertSound(); // 播放完整音序
-                                }
-                                knownAlertIds.add(docId); // 記住它
-                            }
-                        }
-                    } else {
-                        // 如果这个警報 *不再* 是 'new'
-                        if (knownAlertIds.has(docId)) {
-                            knownAlertIds.delete(docId); // 從 "已知" 中移除
-                        }
-                    }
-                });
-
-                // --- 重新渲染UI ---
-                alertList.innerHTML = ''; // 清空列表
-
-                if (currentNewAlerts.size === 0) {
-                    noAlertsMsg.classList.remove('hidden');
-                } else {
-                    noAlertsMsg.classList.add('hidden');
-                    
-                    // 排序 (最新的在最上面)
-                    const sortedAlerts = Array.from(currentNewAlerts.values()).sort((a, b) => {
-                        const timeA = a.timestamp ? a.timestamp.toMillis() : 0;
-                        const timeB = b.timestamp ? b.timestamp.toMillis() : 0;
-                        return timeB - timeA; // 降序
-                    });
-
-                    // 重新產生所有 UI 元素
-                    sortedAlerts.forEach(alertData => {
-                        addAlertToUI(alertData, alertData.id);
-                    });
+                // 確保 AudioContext 在用戶互動後恢復
+                if (audioCtx && audioCtx.state === 'suspended') {
+                    await audioCtx.resume();
                 }
 
-            }, (error) => {
-                console.error("監聽警報失敗:", error);
+                const volume = volumeSlider.value;
                 
-                // 修正：在管理員介面顯示 Firestore 權限錯誤
-                if (error.code === 'permission-denied' || (error.message && error.message.includes('permission'))) {
-                    firestoreErrorContent.innerHTML = '<b>(Error: Missing or insufficient permissions.)</b><br>這表示您的 Firebase 安全性規則阻止了程式讀取資料。<br><br><b>解決方案：</b><br>1. 前往您的 Firebase 專案 (`nw-sos`)。<br>2. 選擇 "Firestore Database"。<br>3. 點選 "規則 (Rules)" 頁籤。<br>4. 將規則修改為允許讀取（例如 `allow read: if true;`）並發布。';
-                    firestoreErrorBox.classList.remove('hidden');
-                } else {
-                    firestoreErrorContent.textContent = `無法載入警報: ${error.message}`;
-                    firestoreErrorBox.classList.remove('hidden');
+                // 1. 先播放語音
+                await speakAlertText(volume); 
+                
+                // 2. 檢查語音播放後是否被停止
+                if (!isSoundPlaying) {
+                    console.log("警報在語音播放期間被停止。");
+                    return;
                 }
                 
-                alertList.innerHTML = ''; // 清空列表
-                noAlertsMsg.classList.remove('hidden'); // 顯示 "無警報"
-            });
-        }
+                // 3. 開始無限循環鈴聲
+                console.log("語音完畢，開始播放無限鈴聲...");
+                playRingTone(volume); 
 
-        // 將警報添加到UI
-        function addAlertToUI(data, docId) {
-            noAlertsMsg.classList.add('hidden'); // 隱藏 "無警報" 訊息
-
-            const alertTime = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleString() : '時間未知';
-            
-            const alertElement = document.createElement('div');
-            alertElement.id = `alert-${docId}`;
-            alertElement.className = "bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-md flex justify-between items-center";
-            
-            alertElement.innerHTML = `
-                <div>
-                    <p class="font-bold text-lg">${data.residentInfo}</p>
-                    <p class="text-sm">${alertTime}</p>
-                </div>
-                <button data-doc-id="${docId}" class="resolve-btn bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
-                    處理完畢
-                </button>
-            `;
-            
-            // 將最新的警報放在最上面
-            alertList.prepend(alertElement);
-
-            // 綁定 "處理完畢" 按鈕事件
-            alertElement.querySelector('.resolve-btn').addEventListener('click', () => {
-                resolveAlert(docId);
-            });
-        }
-
-        // 從UI移除警報
-        function removeAlertFromUI(docId) {
-            const alertElement = document.getElementById(`alert-${docId}`);
-            if (alertElement) {
-                alertElement.remove();
-            }
-
-            // 檢查是否所有警報都已移除
-            if (alertList.querySelectorAll('div').length === 0) {
-                noAlertsMsg.classList.remove('hidden');
-            }
-        }
-
-        // 處理警報 (將狀態更新為 'resolved')
-        async function resolveAlert(docId) {
-            try {
-                const docRef = doc(db, `artifacts/${appId}/public/data/sos_alerts`, docId);
-                await updateDoc(docRef, {
-                    status: 'resolved' // 狀態改為已處理
-                });
-                // onSnapshot 會自動偵測到這個變更並從UI移除
-                console.log(`警報 ${docId} 已處理`);
             } catch (error) {
-                console.error("處理警報失敗:", error);
-            }
+                console.error("播放警報音時發生錯誤:", error);
+                // 即使出錯也要重設
+                isSoundPlaying = false;
+            } 
         }
 
-        // --- 5. 啟動應用程式 ---
+        // --- 6. 啟動 App ---
         initializeFirebase();
 
     </script>
