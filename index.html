@@ -164,7 +164,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, addDoc, getDoc, setDoc, deleteDoc, updateDoc, collection, query, onSnapshot, serverTimestamp, setLogLevel, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+        import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
         // --- 全域變數 ---
         let db, auth, storage, userId, appId;
@@ -329,7 +329,7 @@
                     li.className = 'flex justify-between items-center bg-white p-2 rounded border border-gray-200 text-xs';
                     li.innerHTML = `
                         <span class="truncate flex-1 mr-2" title="${data.name}">${data.name}</span>
-                        <button class="text-red-500 hover:text-red-700 font-bold px-2" data-id="${id}" data-path="${data.storagePath}">刪除</button>
+                        <button class="text-red-500 hover:text-red-700 font-bold px-2" data-id="${id}" data-path="${data.storagePath || ''}">刪除</button>
                     `;
                     li.querySelector('button').onclick = (e) => deleteRingtone(e.target.dataset.id, e.target.dataset.path);
                     customRingtoneList.appendChild(li);
@@ -368,6 +368,14 @@
         }
 
         // 3. 上傳新鈴聲
+        function readFileAsDataURL(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
         mp3FileInput.onchange = () => {
             uploadMp3Btn.disabled = mp3FileInput.files.length === 0;
         };
@@ -375,39 +383,32 @@
         uploadMp3Btn.onclick = async () => {
             const file = mp3FileInput.files[0];
             if (!file) return;
-
             uploadMp3Btn.disabled = true;
             uploadStatus.textContent = '上傳中...';
             uploadStatus.className = 'text-xs text-blue-600 h-4 mb-2';
-
+            try { if (!auth.currentUser) await signInAnonymously(auth); } catch(e) {}
+            if (file.size > 700 * 1024) {
+                uploadStatus.textContent = '檔案過大，請小於 700KB';
+                uploadStatus.className = 'text-xs text-red-600 h-4 mb-2';
+                uploadMp3Btn.disabled = false;
+                return;
+            }
             try {
-                // 1. 上傳 Storage
-                const fileName = `${Date.now()}_${file.name}`;
-                const storagePath = `artifacts/${appId}/public/data/ringtones/${fileName}`;
-                const storageRef = ref(storage, storagePath);
-                
-                await uploadBytes(storageRef, file);
-                const downloadURL = await getDownloadURL(storageRef);
-
-                // 2. 寫入 Firestore
+                const dataUrl = await readFileAsDataURL(file);
                 await addDoc(collection(db, `artifacts/${appId}/public/data/custom_ringtones`), {
                     name: file.name,
-                    url: downloadURL,
-                    storagePath: storagePath,
+                    url: dataUrl,
                     createdAt: serverTimestamp()
                 });
-
                 uploadStatus.textContent = '上傳成功！';
                 uploadStatus.className = 'text-xs text-green-600 h-4 mb-2';
-                mp3FileInput.value = ''; // 清空
-                
+                mp3FileInput.value = '';
             } catch (e) {
-                console.error("上傳失敗:", e);
                 uploadStatus.textContent = '失敗: ' + e.message;
                 uploadStatus.className = 'text-xs text-red-600 h-4 mb-2';
             } finally {
                 setTimeout(() => { uploadStatus.textContent = ''; }, 3000);
-                uploadMp3Btn.disabled = false; // 即使 file input 空的也暫時解鎖，由 onchange 控制
+                uploadMp3Btn.disabled = false;
             }
         };
 
