@@ -20,7 +20,7 @@
             to { transform: rotate(360deg); }
         }
         /* SOS 按鈕的呼吸效果 */
-        #sos-button:not(:disabled) {
+        #sos-button.pulse:not(:disabled) {
             animation: pulse-red 2s infinite;
         }
         @keyframes pulse-red {
@@ -45,13 +45,13 @@
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+<body class="bg-gray-100 min-h-screen">
 
     <!-- 容器 -->
-    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 md:p-8">
+    <div id="app-card" class="w-screen h-screen bg-white p-0">
 
         <!-- 0. 載入中畫面 -->
-        <div id="loading-view">
+        <div id="loading-view" class="hidden h-full">
             <div class="flex flex-col items-center justify-center min-h-[200px]">
                 <div class="spinner w-12 h-12 border-4 border-gray-200 rounded-full"></div>
                 <p id="loading-text" class="text-gray-500 mt-4">系統載入中...</p>
@@ -63,7 +63,7 @@
         </div>
 
         <!-- 1. 入口選擇畫面 -->
-        <div id="portal-view" class="hidden">
+        <div id="portal-view" class="hidden h-full">
             <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">社區SOS系統</h1>
             <div class="space-y-4">
                 <button id="goto-resident" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg text-lg transition duration-300">
@@ -77,23 +77,13 @@
         </div>
 
         <!-- 2. 住戶畫面 -->
-        <div id="resident-view" class="hidden">
-            <button id="resident-back-btn" class="text-sm text-blue-500 hover:text-blue-700 mb-4">&larr; 返回</button>
-            <h1 class="text-2xl font-bold text-center text-green-600 mb-6">住戶服務</h1>
-            
-            <div class="mb-6">
-                <label for="resident-info" class="block text-sm font-medium text-gray-700 mb-2">您的房號或姓名：</label>
-                <input type="text" id="resident-info" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="例如：A棟101房 陳先生">
-            </div>
-
-            <button id="sos-button" class="w-full h-36 bg-red-600 text-white font-bold text-4xl rounded-2xl shadow-2xl flex items-center justify-center transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:animate-none" disabled>
-                SOS<br>緊急呼叫
-            </button>
+        <div id="resident-view" class="hidden h-full w-full relative">
+            <button id="sos-button" class="absolute inset-0 w-full h-full bg-transparent text-transparent border-0 rounded-none cursor-pointer focus:outline-none" disabled></button>
             <p id="resident-status" class="text-center text-gray-500 mt-4 h-6"></p>
         </div>
 
         <!-- 3. 管理員畫面 -->
-        <div id="manager-view" class="hidden">
+        <div id="manager-view" class="hidden h-full w-full">
             <button id="manager-back-btn" class="text-sm text-blue-500 hover:text-blue-700 mb-4">&larr; 返回</button>
             <h1 class="text-2xl font-bold text-center text-blue-600 mb-6">管理中心 - 緊急通報</h1>
 
@@ -114,6 +104,16 @@
                             ▶ 試聽
                         </button>
                     </div>
+                </div>
+
+                <!-- 背景圖片 -->
+                <div class="mb-3 border-t border-gray-300 pt-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">背景圖片</label>
+                    <div class="flex gap-2 items-center">
+                        <input type="file" id="bg-file-input" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                        <button id="set-bg-btn" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm whitespace-nowrap" disabled>設定背景</button>
+                    </div>
+                    <p id="bg-status" class="text-xs text-gray-500 h-4 mt-2"></p>
                 </div>
 
                 <!-- 管理/上傳鈴聲區塊 -->
@@ -209,11 +209,10 @@
         // Buttons
         document.getElementById('goto-resident').onclick = () => showView('resident');
         document.getElementById('goto-manager').onclick = () => showView('manager');
-        document.getElementById('resident-back-btn').onclick = () => showView('portal');
+        
         document.getElementById('manager-back-btn').onclick = () => showView('portal');
 
         const sosButton = document.getElementById('sos-button');
-        const residentInfoInput = document.getElementById('resident-info');
         const residentStatus = document.getElementById('resident-status');
         const alertList = document.getElementById('alert-list');
         const noAlertsMsg = document.getElementById('no-alerts');
@@ -229,6 +228,9 @@
         const uploadMp3Btn = document.getElementById('upload-mp3-btn');
         const uploadStatus = document.getElementById('upload-status');
         const customRingtoneList = document.getElementById('custom-ringtone-list');
+        const bgFileInput = document.getElementById('bg-file-input');
+        const setBgBtn = document.getElementById('set-bg-btn');
+        const bgStatus = document.getElementById('bg-status');
 
         // --- 初始化 ---
         async function initializeFirebase() {
@@ -241,12 +243,13 @@
 
                 await signInAnonymously(auth);
 
-                onAuthStateChanged(auth, (user) => {
+                onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
                         document.getElementById('portal-user-id').textContent = userId;
                         sosButton.disabled = false;
-                        residentInfoInput.disabled = false;
+                        try { await loadSettings(); } catch(e) {}
+                        applyResidentBackground();
                         showView('portal');
                     }
                 });
@@ -413,6 +416,17 @@
         };
 
         // 4. 載入設定
+        function applyResidentBackground() {
+            const url = currentSettings.bgImageDataUrl;
+            if (url) {
+                residentView.style.backgroundImage = `url('${url}')`;
+                residentView.style.backgroundSize = 'cover';
+                residentView.style.backgroundPosition = 'center';
+                residentView.style.backgroundRepeat = 'no-repeat';
+            } else {
+                residentView.style.backgroundImage = '';
+            }
+        }
         async function loadSettings() {
             const docRef = doc(db, `artifacts/${appId}/public/data/settings/manager_config`);
             const snap = await getDoc(docRef);
@@ -425,6 +439,7 @@
                 setTimeout(() => {
                     if (data.selectedRingtoneId) ringtoneSelect.value = data.selectedRingtoneId;
                 }, 500);
+                applyResidentBackground();
             }
         }
 
@@ -435,8 +450,8 @@
                 volume: volumeSlider.value
             };
             const docRef = doc(db, `artifacts/${appId}/public/data/settings/manager_config`);
-            await setDoc(docRef, newSettings);
-            currentSettings = newSettings;
+            await setDoc(docRef, newSettings, { merge: true });
+            currentSettings = { ...currentSettings, ...newSettings };
         }
 
         saveSettingsBtn.onclick = async () => {
@@ -452,6 +467,75 @@
             } finally {
                 saveSettingsBtn.disabled = false;
                 setTimeout(() => settingsStatus.textContent = '', 2000);
+            }
+        };
+
+        ringtoneSelect.onchange = async () => {
+            settingsStatus.textContent = '自動儲存中...';
+            settingsStatus.className = 'text-center text-xs text-gray-600 mt-2 h-4';
+            try {
+                await saveSettingsToFirestore();
+                settingsStatus.textContent = '已自動儲存';
+                settingsStatus.className = 'text-center text-xs text-green-600 mt-2 h-4';
+            } catch (e) {
+                settingsStatus.textContent = '錯誤: ' + e.message;
+                settingsStatus.className = 'text-center text-xs text-red-600 mt-2 h-4';
+            } finally {
+                setTimeout(() => settingsStatus.textContent = '', 2000);
+            }
+        };
+
+        bgFileInput.onchange = async () => {
+            setBgBtn.disabled = bgFileInput.files.length === 0;
+            if (!bgFileInput.files[0]) return;
+            setBgBtn.disabled = true;
+            bgStatus.textContent = '設定中...';
+            const f = bgFileInput.files[0];
+            if (f.size > 800 * 1024) {
+                bgStatus.textContent = '檔案過大，請小於 800KB';
+                bgStatus.className = 'text-xs text-red-600 h-4 mt-2';
+                setBgBtn.disabled = false;
+                return;
+            }
+            try {
+                const dataUrl = await readFileAsDataURL(f);
+                const docRef = doc(db, `artifacts/${appId}/public/data/settings/manager_config`);
+                await setDoc(docRef, { bgImageDataUrl: dataUrl }, { merge: true });
+                residentView.style.backgroundImage = `url('${dataUrl}')`;
+                residentView.style.backgroundSize = 'cover';
+                residentView.style.backgroundPosition = 'center';
+                residentView.style.backgroundRepeat = 'no-repeat';
+                bgStatus.textContent = '背景已更新';
+                bgStatus.className = 'text-xs text-green-600 h-4 mt-2';
+            } catch (e) {
+                bgStatus.textContent = '錯誤: ' + e.message;
+                bgStatus.className = 'text-xs text-red-600 h-4 mt-2';
+            } finally {
+                setBgBtn.disabled = false;
+                setTimeout(() => bgStatus.textContent = '', 2000);
+            }
+        };
+
+        setBgBtn.onclick = async () => {
+            if (!bgFileInput.files[0]) return;
+            setBgBtn.disabled = true;
+            bgStatus.textContent = '設定中...';
+            try {
+                const dataUrl = await readFileAsDataURL(bgFileInput.files[0]);
+                const docRef = doc(db, `artifacts/${appId}/public/data/settings/manager_config`);
+                await setDoc(docRef, { bgImageDataUrl: dataUrl }, { merge: true });
+                residentView.style.backgroundImage = `url('${dataUrl}')`;
+                residentView.style.backgroundSize = 'cover';
+                residentView.style.backgroundPosition = 'center';
+                residentView.style.backgroundRepeat = 'no-repeat';
+                bgStatus.textContent = '背景已更新';
+                bgStatus.className = 'text-xs text-green-600 h-4 mt-2';
+            } catch (e) {
+                bgStatus.textContent = '錯誤: ' + e.message;
+                bgStatus.className = 'text-xs text-red-600 h-4 mt-2';
+            } finally {
+                setBgBtn.disabled = false;
+                setTimeout(() => bgStatus.textContent = '', 2000);
             }
         };
 
@@ -522,8 +606,6 @@
             if (audioCtx && audioCtx.state === 'suspended') await audioCtx.resume();
 
             const volume = volumeSlider.value;
-            await speakAlertText(volume); // 先語音
-
             if (!isSoundPlaying) return;
 
             const id = currentSettings.selectedRingtoneId || 'alice';
@@ -593,16 +675,12 @@
         }
 
         // --- 住戶功能 (SOS) ---
-        residentInfoInput.addEventListener('input', () => residentStatus.textContent = '');
         sosButton.onclick = async () => {
-            if (!residentInfoInput.value.trim()) {
-                residentStatus.textContent = '請輸入房號！'; residentStatus.className = 'text-center text-red-500 mt-4 h-6'; return;
-            }
             sosButton.disabled = true;
             residentStatus.textContent = '發送中...';
             try {
                 await addDoc(collection(db, `artifacts/${appId}/public/data/sos_alerts`), {
-                    residentInfo: residentInfoInput.value.trim(),
+                    residentInfo: '匿名',
                     status: 'new',
                     createdAt: serverTimestamp(),
                     senderId: userId
@@ -664,7 +742,5 @@
 
         initializeFirebase();
     </script>
-</body>
-</html>
-
-
+    </body>
+    </html>
