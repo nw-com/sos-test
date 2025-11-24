@@ -192,7 +192,7 @@
           apiKey: "AIzaSyCslxeIkL0-4FSlQtsnGBRjKEGnIW2NVw8",
           authDomain: "nw-sos.firebaseapp.com",
           projectId: "nw-sos",
-          storageBucket: "nw-sos.firebasestorage.app",
+          storageBucket: "nw-sos.appspot.com",
           messagingSenderId: "998718068324",
           appId: "1:998718068324:web:cd8b8b69bf043fe64bb171",
           measurementId: "G-E31DVPW0LE"
@@ -236,7 +236,7 @@
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
-                storage = getStorage(app);
+                storage = getStorage(app, 'gs://nw-sos.appspot.com');
                 setLogLevel('Silent');
 
                 await signInAnonymously(auth);
