@@ -86,64 +86,56 @@
         <div id="manager-view" class="hidden h-full w-full">
             <button id="manager-back-btn" class="text-sm text-blue-500 hover:text-blue-700 mb-4">&larr; 返回</button>
             <h1 class="text-2xl font-bold text-center text-blue-600 mb-6">管理中心 - 緊急通報</h1>
+            <button id="open-settings-btn" class="mb-4 bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded-lg text-sm">設定</button>
 
-            <!-- 設定區塊 (鈴聲設定) -->
-            <div class="settings-box">
-                <h3 class="font-bold text-gray-700 mb-3">鈴聲設定</h3>
-                
-                <!-- 鈴聲選擇 -->
-                <div class="mb-3">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">選擇鈴聲</label>
-                    <div class="flex gap-2">
-                        <select id="ringtone-select" class="flex-1 border border-gray-300 rounded-md p-2 text-sm bg-white">
-                            <option value="alice">預設：愛麗絲 (合成音)</option>
-                            <option value="phone">預設：傳統電話聲 (合成音)</option>
-                            <!-- 自訂鈴聲會動態插入這裡 -->
-                        </select>
-                        <button id="preview-btn" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-1 px-3 rounded text-sm transition duration-200 whitespace-nowrap">
-                            ▶ 試聽
-                        </button>
+            <div id="settings-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div class="bg-white w-full max-w-md rounded-2xl shadow-xl p-4 md:p-6">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="font-bold text-gray-800">系統設定</h2>
+                        <button id="close-settings-btn" class="text-gray-600 hover:text-gray-800">✕</button>
+                    </div>
+
+                    <div class="settings-box">
+                        <h3 class="font-bold text-gray-700 mb-3">鈴聲設定</h3>
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">選擇鈴聲</label>
+                            <div class="flex gap-2">
+                                <select id="ringtone-select" class="flex-1 border border-gray-300 rounded-md p-2 text-sm bg-white">
+                                    <option value="alice">預設：愛麗絲 (合成音)</option>
+                                    <option value="phone">預設：傳統電話聲 (合成音)</option>
+                                </select>
+                                <button id="preview-btn" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-1 px-3 rounded text-sm transition duration-200 whitespace-nowrap">▶ 試聽</button>
+                            </div>
+                        </div>
+
+                        <div class="mb-3 border-t border-gray-300 pt-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">背景圖片</label>
+                            <div class="flex gap-2 items-center">
+                                <input type="file" id="bg-file-input" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                                <button id="set-bg-btn" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm whitespace-nowrap" disabled>設定背景</button>
+                            </div>
+                            <p id="bg-status" class="text-xs text-gray-500 h-4 mt-2"></p>
+                        </div>
+
+                        <div class="mb-3 border-t border-gray-300 pt-3">
+                            <p class="text-sm font-medium text-gray-700 mb-2">新增/管理 MP3 鈴聲</p>
+                            <div class="flex gap-2 items-center mb-2">
+                                <input type="file" id="mp3-file-input" accept=".mp3,.wav,audio/mpeg,audio/wav" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                                <button id="upload-mp3-btn" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm whitespace-nowrap" disabled>上傳</button>
+                            </div>
+                            <p id="upload-status" class="text-xs text-gray-500 h-4 mb-2"></p>
+                            <div id="custom-ringtone-list" class="space-y-1 max-h-24 overflow-y-auto"></div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="volume-slider" class="block text-sm font-medium text-gray-700">提示音音量</label>
+                            <input type="range" id="volume-slider" min="0" max="1" step="0.1" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        </div>
+
+                        <button id="save-settings-btn" class="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded-lg transition duration-200 text-sm">儲存目前設定 (音量與選擇)</button>
+                        <p id="settings-status" class="text-center text-xs text-gray-500 mt-2 h-4"></p>
                     </div>
                 </div>
-
-                <!-- 背景圖片 -->
-                <div class="mb-3 border-t border-gray-300 pt-3">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">背景圖片</label>
-                    <div class="flex gap-2 items-center">
-                        <input type="file" id="bg-file-input" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                        <button id="set-bg-btn" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm whitespace-nowrap" disabled>設定背景</button>
-                    </div>
-                    <p id="bg-status" class="text-xs text-gray-500 h-4 mt-2"></p>
-                </div>
-
-                <!-- 管理/上傳鈴聲區塊 -->
-                <div class="mb-3 border-t border-gray-300 pt-3">
-                    <p class="text-sm font-medium text-gray-700 mb-2">新增/管理 MP3 鈴聲</p>
-                    
-                    <!-- 上傳 -->
-                    <div class="flex gap-2 items-center mb-2">
-                        <input type="file" id="mp3-file-input" accept=".mp3,.wav,audio/mpeg,audio/wav" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                        <button id="upload-mp3-btn" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm whitespace-nowrap" disabled>上傳</button>
-                    </div>
-                    <p id="upload-status" class="text-xs text-gray-500 h-4 mb-2"></p>
-
-                    <!-- 鈴聲列表 (可刪除) -->
-                    <div id="custom-ringtone-list" class="space-y-1 max-h-24 overflow-y-auto">
-                        <!-- 動態產生列表 -->
-                    </div>
-                </div>
-
-                <!-- 音量控制 -->
-                <div class="mb-3">
-                    <label for="volume-slider" class="block text-sm font-medium text-gray-700">提示音音量</label>
-                    <input type="range" id="volume-slider" min="0" max="1" step="0.1" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
-                </div>
-
-                <!-- 儲存按鈕 -->
-                <button id="save-settings-btn" class="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded-lg transition duration-200 text-sm">
-                    儲存目前設定 (音量與選擇)
-                </button>
-                <p id="settings-status" class="text-center text-xs text-gray-500 mt-2 h-4"></p>
             </div>
 
             <div id="firestore-permission-error" class="error-box hidden w-full mb-4">
@@ -217,6 +209,9 @@
         const alertList = document.getElementById('alert-list');
         const noAlertsMsg = document.getElementById('no-alerts');
         const firestoreError = document.getElementById('firestore-permission-error');
+        const openSettingsBtn = document.getElementById('open-settings-btn');
+        const settingsModal = document.getElementById('settings-modal');
+        const closeSettingsBtn = document.getElementById('close-settings-btn');
 
         // Settings DOM
         const ringtoneSelect = document.getElementById('ringtone-select');
@@ -485,6 +480,12 @@
             }
         };
 
+        if (openSettingsBtn && settingsModal && closeSettingsBtn) {
+            openSettingsBtn.onclick = () => settingsModal.classList.remove('hidden');
+            closeSettingsBtn.onclick = () => settingsModal.classList.add('hidden');
+            settingsModal.addEventListener('click', (e) => { if (e.target === settingsModal) settingsModal.classList.add('hidden'); });
+        }
+
         bgFileInput.onchange = async () => {
             setBgBtn.disabled = bgFileInput.files.length === 0;
             if (!bgFileInput.files[0]) return;
@@ -680,7 +681,7 @@
             residentStatus.textContent = '發送中...';
             try {
                 await addDoc(collection(db, `artifacts/${appId}/public/data/sos_alerts`), {
-                    residentInfo: '匿名',
+                    residentInfo: '1棟6號8樓',
                     status: 'new',
                     createdAt: serverTimestamp(),
                     senderId: userId
@@ -732,7 +733,14 @@
                     <button class="silence flex-1 bg-blue-500 text-white font-bold py-2 rounded hover:bg-blue-600">已收到 (靜音)</button>
                     <button class="resolve flex-1 bg-green-500 text-white font-bold py-2 rounded hover:bg-green-600">處理完畢</button>
                 </div>`;
-            div.querySelector('.silence').onclick = stopAlarm;
+            div.querySelector('.silence').onclick = async () => {
+                stopAlarm();
+                try {
+                    knownAlertIds.delete(alert.id);
+                    await updateDoc(doc(db, `artifacts/${appId}/public/data/sos_alerts/${alert.id}`), { status: 'ack' });
+                    div.remove();
+                } catch (e) {}
+            };
             div.querySelector('.resolve').onclick = async () => {
                 knownAlertIds.delete(alert.id);
                 await updateDoc(doc(db, `artifacts/${appId}/public/data/sos_alerts/${alert.id}`), { status: 'resolved' });
